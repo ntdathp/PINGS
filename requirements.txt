@@ -4,7 +4,7 @@
 # This is a compatibility profile, not a freeze of the workstation environment.
 #
 # Run from the PINGS repository root:
-#   python -m pip install -r requirements.txt --no-build-isolation
+#   python -m pip install -r requirements-pings.txt --no-build-isolation
 
 # Core: retain NumPy 1.x and the original project pins.
 numpy==1.26.4

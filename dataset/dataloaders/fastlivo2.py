@@ -1,0 +1,52 @@
+"""PINGS loader for files exported by prepare_hku.py. MIT license."""
+import json
+from pathlib import Path
+
+import cv2
+import numpy as np
+
+
+class FastLIVO2Dataset:
+    def __init__(self, data_dir, *_, **__):
+        self.root = Path(data_dir)
+        self.meta = json.loads((self.root / "dataset.json").read_text())
+        if not self.meta.get("qa_approved", False):
+            raise RuntimeError("Inspect qa/*.jpg, then run: python prepare_hku.py approve " + str(self.root))
+        self.frames = self.meta["frames"]
+        if not self.frames:
+            raise ValueError("Dataset has no synchronized frames")
+        if any(f.get("skip_motion_compensation", False) for f in self.frames):
+            from dataset.slam_dataset import SLAMDataset
+            if not getattr(SLAMDataset, "supports_frame_motion_skip", False):
+                raise RuntimeError("Gap handling needs installation: python prepare_hku.py install --pings-root /path/to/PINGS --update")
+        c = self.meta["calibration"]
+        self.contains_image = True
+        self.load_img = False
+        self.main_cam_name = "cam"
+        self.main_lidar_name = "lidar"
+        self.mono_depth_for_high_z = False
+        self.K_mats = {"cam": np.array(c["K"], dtype=np.float64)}
+        self.T_c_l_mats = {"cam": np.array(c["T_camera_lidar"], dtype=np.float64)}
+        self.cam_heights = {"cam": c["height"]}
+        self.cam_widths = {"cam": c["width"]}
+
+    def __len__(self):
+        return len(self.frames)
+
+    def __getitem__(self, idx):
+        frame = self.frames[idx]
+        with np.load(self.root / frame["scan"], allow_pickle=False) as f:
+            xyz = f["xyz"].astype(np.float64)
+            ts = f["point_ts"].astype(np.float64)
+        result = {"points": np.column_stack((xyz, np.zeros_like(xyz))), "point_ts": ts,
+                  "skip_motion_compensation": frame.get("skip_motion_compensation", False)}
+        if self.load_img:
+            img = cv2.imread(str(self.root / frame["image"]))
+            if img is None:
+                raise FileNotFoundError(frame["image"])
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            result["img"] = {"cam": img}
+            # PINGS uses this to compensate for the residual camera timing difference.
+            result["sensor_ts"] = {"lidar": frame["scan_end_ns"] / 1e9,
+                                   "cam": frame["image_corrected_ns"] / 1e9}
+        return result

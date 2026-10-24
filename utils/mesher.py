@@ -498,7 +498,10 @@ class Mesher:
             print("# Chunk for meshing: ", len(aabbs))
             
         mesh_merged = o3d.geometry.TriangleMesh()
-        for bbx in tqdm(aabbs, disable=self.silence):
+        safe_boxes = _pings_safe_mesh_boxes(
+            aabbs, voxel_size, self.config.pad_voxel, self.config.skip_top_voxel
+        )
+        for bbx in tqdm(safe_boxes, disable=self.silence):
             cur_mesh = self.recon_aabb_mesh(
                 bbx,
                 voxel_size,
@@ -512,6 +515,8 @@ class Mesher:
                 mesh_min_nn,
                 use_torch_mc,
             )
+            if cur_mesh is None:
+                raise RuntimeError("Meshing returned None after subdivision; no chunk was silently dropped")
             mesh_merged += cur_mesh
 
         mesh_merged.remove_duplicated_vertices()
@@ -634,3 +639,37 @@ def filter_isolated_vertices(mesh, filter_cluster_min_tri=300):
     mesh.remove_triangles_by_mask(triangles_to_remove)
 
     return mesh
+
+
+# BEGIN PINGS_BOUNDED_MESH_BOXES_V1
+def _pings_safe_mesh_boxes(aabbs, voxel_size, pad_voxel, skip_top_voxel,
+                           max_query_points=2_000_000):
+    """Partition every input box in 3D before allocating an SDF query grid."""
+    if not np.isfinite(voxel_size) or voxel_size <= 0:
+        raise ValueError("Mesh resolution must be finite and greater than zero")
+    pending = list(reversed(aabbs))
+    while pending:
+        bbx = pending.pop()
+        lo = np.asarray(bbx.get_min_bound(), dtype=np.float64).copy()
+        hi = np.asarray(bbx.get_max_bound(), dtype=np.float64).copy()
+        extent = hi - lo
+        if not np.all(np.isfinite(extent)) or np.any(extent < 0):
+            raise ValueError("Invalid mesh chunk bounds")
+        dims = np.ceil(extent / voxel_size).astype(np.int64) + 2 * pad_voxel
+        dims[2] += 1 - skip_top_voxel
+        if np.any(dims <= 0):
+            raise ValueError("Mesh grid is too small for the configured padding")
+        count = int(dims[0]) * int(dims[1]) * int(dims[2])
+        # The original mesher uses int16 axis indices. Keep every axis in range.
+        if count <= max_query_points and int(dims.max()) <= 30_000:
+            yield bbx
+            continue
+        axis = int(np.argmax(extent))
+        middle = lo[axis] + extent[axis] * 0.5
+        if not lo[axis] < middle < hi[axis]:
+            raise RuntimeError("Unable to subdivide a mesh chunk further")
+        left_hi, right_lo = hi.copy(), lo.copy()
+        left_hi[axis] = right_lo[axis] = middle
+        pending.append(o3d.geometry.AxisAlignedBoundingBox(right_lo, hi))
+        pending.append(o3d.geometry.AxisAlignedBoundingBox(lo, left_hi))
+# END PINGS_BOUNDED_MESH_BOXES_V1

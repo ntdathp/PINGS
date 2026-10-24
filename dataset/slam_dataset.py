@@ -46,6 +46,7 @@ from utils.tools import (
 from gaussian_splatting.utils.cameras import CamImage
 
 class SLAMDataset():
+    supports_frame_motion_skip = True  # HKU adapter
     def __init__(self, config: Config) -> None:
 
         super().__init__()
@@ -244,6 +245,7 @@ class SLAMDataset():
 
         frame_id_in_folder = self.config.begin_frame + frame_id * self.config.step_frame
         frame_data = self.loader[frame_id_in_folder]
+        self.skip_frame_motion_compensation = bool(frame_data.get('skip_motion_compensation', False)) if isinstance(frame_data, dict) else False
 
         points = None
         point_ts = None
@@ -674,7 +676,7 @@ class SLAMDataset():
             cur_source_lidar_idx = None
 
         # deskewing (motion undistortion) for source point cloud
-        if self.config.deskew and not self.lose_track:
+        if self.config.deskew and not self.lose_track and not getattr(self, 'skip_frame_motion_compensation', False):
             self.cur_source_points = deskewing(
                 self.cur_source_points,
                 cur_source_ts,
@@ -752,7 +754,7 @@ class SLAMDataset():
         self.last_odom_tran_torch = torch.tensor(self.last_odom_tran, device=self.device, dtype=self.dtype)
 
         # deskewing (motion undistortion using the estimated transformation) for the points for mapping
-        if self.config.deskew and not self.lose_track:
+        if self.config.deskew and not self.lose_track and not getattr(self, 'skip_frame_motion_compensation', False):
             self.cur_point_cloud_torch = deskewing(
                 self.cur_point_cloud_torch,
                 self.cur_point_ts_torch,
@@ -824,7 +826,7 @@ class SLAMDataset():
             cur_T_c_l = torch.tensor(self.T_c_l_mats[cam_name], device=self.device, dtype=self.dtype)
             
             # relative transformation between the lidar reference timestamp and the camera triggering timestamp
-            if tran_in_frame is not None and self.cur_sensor_ts is not None:
+            if tran_in_frame is not None and self.cur_sensor_ts is not None and not getattr(self, 'skip_frame_motion_compensation', False):
                 
                 cur_cam_ref_ts_ratio = self.get_cur_cam_ref_ts_ratio(cam_name)
                 # print(cur_cam_ref_ts_ratio)

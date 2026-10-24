@@ -180,7 +180,7 @@ def inspect_pings_map(
     mlp_dict["gauss_alpha"] = gaussian_alpha_mlp
     mlp_dict["gauss_color"] = gaussian_color_mlp
 
-    loaded_model = torch.load(model_path)
+    loaded_model = torch.load(model_path, weights_only=False)
     neural_points = loaded_model["neural_points"] # neural_points config are also loaded
     neural_points.config = config
     neural_points.temporal_local_map_on = False
@@ -294,16 +294,18 @@ def inspect_pings_map(
         if mesh_min_nn_k < 0:
             mesh_min_nn_k_used = config.mesh_min_nn # use the default value
         
-        neural_pcd = neural_points.get_neural_points_o3d(query_global=show_global,random_down_ratio=17)
+        neural_pcd = neural_points.get_neural_points_o3d(query_global=show_global,random_down_ratio=1)
         mesh_aabb = neural_pcd.get_axis_aligned_bounding_box()
         chunks_aabb = split_chunks(neural_pcd, mesh_aabb, mesh_vox_size_m*500) 
         print("Number of chunks for reconstruction:", len(chunks_aabb))
-        print("Marching cubes resolution: {:.2f} m".format(mesh_vox_size_m))
+        print("Marching cubes resolution: {:.6f} m".format(mesh_vox_size_m))
         if log_on:
             print("mesh_min_nn:", mesh_min_nn_k_used)
         print("It may take a while to reconstruct the mesh")
 
-        out_mesh_path = None
+        out_mesh_path = os.path.join(experiment_path, "mesh", f"mesh_{mesh_vox_size_m * 1000:g}mm.ply")
+        os.makedirs(os.path.dirname(out_mesh_path), exist_ok=True)
+        print("Mesh output:", out_mesh_path)
         cur_mesh = mesher.recon_aabb_collections_mesh(chunks_aabb, mesh_vox_size_m, out_mesh_path, False, False, \
                                                     config.color_on, filter_isolated_mesh=True, mesh_min_nn=mesh_min_nn_k_used)
 
