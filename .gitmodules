@@ -7,3 +7,6 @@
 [submodule "submodules/fused-ssim"]
 	path = submodules/fused-ssim
 	url = https://github.com/rahul-goel/fused-ssim
+[submodule "rosbag_converter"]
+	path = rosbag_converter
+	url = git@github.com:YuePanEdward/rosbag_converter.git
