@@ -3,8 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# C extensions
+# C extensions / compiler outputs
 *.so
+*.o
 
 # Distribution / packaging
 .Python
@@ -159,52 +160,70 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 .idea/
 
-data
-data/
-experiments
-experiments/
-pings_experiments
-pings_experiments/
+
+# Editor settings
 .vscode/
 
-*.json
-# NOTE.md
+# PINGS datasets and experiment outputs (repository-root directories)
+/data/
+/datasets/
+/experiments/
+/pings_experiments/
+/pings_results/
+/output/
+/outputs/
+/runs/
+/logs/
+/wandb/
+/artifacts/
+/media/
 
-tmp*/
-tmp*
+# Exported maps, meshes, renderings and point clouds
+/map/
+/maps/
+/mesh/
+/meshes/
+/exports/
+/exports_*/
+/renders/
+/videos/
+/cloud_*/
 
-*artifacts/
-*artifacts
+# Large geometry files exported directly into the repository root.
+# Keep assets under cad/, docs/, etc. eligible for version control.
+/*.ply
+/*.pcd
+/*.las
+/*.laz
+/*.obj
 
-*media/
-*media
+# ROS recordings and trained checkpoints
+*.bag
+*.bag.active
+*.db3
+*.db3-shm
+*.db3-wal
+*.mcap
+*.pth
+*.pt
+*.ckpt
 
-# screenshots
-screenshots/
-screenshots
-*png
+# Local screenshots, recordings and saved viewpoints
+/screenshots/
+/recording/
+/recordings/
+/viewpoints/
+*.pkl
 
-# recordings
-recording/
-recording
+# Temporary files and local job outputs
+/tmp/
+/tmp_*/
+/temp/
+*.tmp
+*~
+/q.log/
+/job_scripts/
 
-# viewpoints
-*pkl
-
-# experiment scripts
-*exp.sh
-*test.sh
-*eval.sh
-*train.sh
-*val.sh
-*run.sh
-run*.sh
-
-
-q.log
-q.log/
-
-.[PINGS]*
-
-job_scripts/
-job_scripts
+# Intentionally keep configuration/calibration JSON, PNG documentation assets,
+# shell scripts, notebooks, pings_hku_tools/, and .gitmodules trackable.
+# Put generated assets under the ignored output directories above.
